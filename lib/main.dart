@@ -36,7 +36,10 @@ class _WrapperState extends State<Wrapper> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: widgets.elementAt(index),
+      body: IndexedStack(
+        index: index,
+        children: widgets,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
         onTap: (value) {

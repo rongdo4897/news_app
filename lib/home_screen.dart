@@ -8,8 +8,16 @@ import 'package:http/http.dart' as http;
 
 import 'article_model.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String searchText = '';
+  int currentCategory = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -54,17 +62,29 @@ class HomeScreen extends StatelessWidget {
                     prefixIcon: const Icon(Icons.search),
                     hintText: 'Search for article',
                   ),
+                  onChanged: (value) {
+                    setState(
+                      () {
+                        searchText = value; // Cập nhật giá trị biến khi dữ liệu trong ô input thay đổi
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 24),
               // Thanh danh sách thể loại
-              const SizedBox(
+              SizedBox(
                 height: 40,
-                child: CategoriesBar(),
+                child: CategoriesBar(onSelectCategory: (category) {
+                    setState(() {
+                      currentCategory = category; // Update currentCategory
+                    });
+                  },
+                ),
               ),
               // Danh sách bài báo
               const SizedBox(height: 24),
-              const Expanded(child: ArticleList()),
+              Expanded(child: ArticleList(searchText: searchText, currentCategory: currentCategory)),
             ],
           ),
         ),
@@ -73,8 +93,14 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+// Định nghĩa callback cho giá trị currentCategory
+typedef CategoryCallback = void Function(int);
+
 class CategoriesBar extends StatefulWidget {
-  const CategoriesBar({super.key});
+  final CategoryCallback onSelectCategory;
+
+  const CategoriesBar({Key? key, required this.onSelectCategory})
+      : super(key: key);
 
   @override
   State<CategoriesBar> createState() => _CategoriesBarState();
@@ -100,8 +126,12 @@ class _CategoriesBarState extends State<CategoriesBar> {
       itemBuilder: (context, index) {
         return GestureDetector(
           onTap: () {
-            currentCategory = index;
-            setState(() {});
+            widget.onSelectCategory(index);
+            setState(
+              () {
+                currentCategory = index; // Cập nhật giá trị biến khi dữ liệu trong ô input thay đổi
+              },
+            );
           },
           child: Container(
             margin: const EdgeInsets.only(right: 8.0),
@@ -130,12 +160,15 @@ class _CategoriesBarState extends State<CategoriesBar> {
 }
 
 class ArticleList extends StatelessWidget {
-  const ArticleList({super.key});
+  final String searchText;
+  final int currentCategory;
+
+  const ArticleList({Key? key, required this.searchText, required this.currentCategory}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-      future: getArticles(),
+      future: getArticles(searchText, currentCategory),
       builder: (context, snapshot) {
         switch (snapshot.connectionState) {
           case ConnectionState.none:
@@ -160,14 +193,14 @@ class ArticleList extends StatelessWidget {
     );
   }
 
-  Future<List<Article>> getArticles() async {
+  Future<List<Article>> getArticles(String searchText, int category) async {
     const url =
-        'https://newsapi.org/v2/top-headlines?country=us&category=business&apiKey=f8bb7a44a3a54ddc8a3025e0e72c6b67';
+        'https://newsapi.org/v2/top-headlines?country=us&category=business&apiKey=b82b2d915636455c91c6d71f76d7a403';
     final res = await http.get(Uri.parse(url));
 
     final body = json.decode(res.body) as Map<String, dynamic>;
 
-    final List<Article> result = [];
+    List<Article> result = [];
     for (final article in body['articles']) {
       result.add(
         Article(
@@ -175,6 +208,23 @@ class ArticleList extends StatelessWidget {
           urlToImage: article['urlToImage'],
         ),
       );
+    }
+
+    // Xử lý khi lựa chọn category
+    if (category != 0) {
+      // Số lượng phần tử của từng cate
+      int rangeCate = result.length ~/ 5;
+      int startIndex = (category - 1) * rangeCate;
+      int endIndex = startIndex + rangeCate;
+      result = result.sublist(startIndex, endIndex);
+    }
+
+    // Xử lý cho phần search text theo dạng convert text và title về chữ thường
+    if (searchText != "") {
+      result = result
+          .where((element) =>
+              element.title.toLowerCase().contains(searchText.toLowerCase()))
+          .toList();
     }
 
     return result;
